@@ -3,6 +3,21 @@ __pycache__/
 *.py[codz]
 *$py.class
 
+# IDE
+.idea/
+
+# Python
+*.pyc
+
+# datasets
+data/
+
+# notebooks cache
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+
 # C extensions
 *.so
 
