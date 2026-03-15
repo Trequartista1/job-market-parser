@@ -7,20 +7,22 @@ import re
 
 
 BASE_URL = "https://www.work.ua"
+SEARCH_QUERIES = ["data+analyst",
+                  "business+analyst",
+                  "marketing+analyst",
+                  "financial+analyst",
+                  "product+analyst",
+                  "system+analyst",
+                  "BI+analyst",
+                  "data+scientist"]
 
+# COLLECTING LINKS
+def get_job_links(query, page=1):
 
-def get_job_links(page=1):
-
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
-    url = f"https://www.work.ua/jobs-data+analyst/?page={page}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+    url = f"https://www.work.ua/jobs-{query}/?page={page}"
 
     r = requests.get(url, headers=headers)
-
-    print("status:", r.status_code)
-
     soup = BeautifulSoup(r.text, "lxml")
 
     links = set()
@@ -32,7 +34,6 @@ def get_job_links(page=1):
         if not href:
             continue
 
-        # ищем /jobs/NUMBER/
         if re.match(r"^/jobs/\d+/?$", href):
 
             full_link = BASE_URL + href
@@ -40,13 +41,10 @@ def get_job_links(page=1):
 
     return list(links)
 
-
+# COLLECTING HTML'S
 def fetch_job_page(url):
 
-    headers = {
-        "User-Agent": "Mozilla/5.0"
-    }
-
+    headers = {"User-Agent": "Mozilla/5.0"}
     r = requests.get(url, headers=headers)
 
     if r.status_code != 200:
@@ -54,24 +52,23 @@ def fetch_job_page(url):
         return None
 
     soup = BeautifulSoup(r.text, "lxml")
-
-    time.sleep(1)
-
+    time.sleep(1.2)
     return soup
 
-def parse_job_page(soup):
+# PARSING HTML
+def parse_job_page(soup, url, query):
 
-    title = None
-    company = None
-    location = None
 
     # TITLE
+    title = None
     title_tag = soup.find("h1")
 
     if title_tag:
         title = title_tag.text.strip()
 
     # COMPANY
+    company = "Компанія прихована"
+
     for tag in soup.select("span.strong-500"):
 
         text = tag.text.replace("\xa0", " ").strip()
@@ -79,34 +76,30 @@ def parse_job_page(soup):
         if "грн" in text:
             continue
 
-        company = text
-        break
+        if text:
+            company = text
+            break
 
     # LOCATION
+    location = None
     location_icon = soup.select_one(".glyphicon-map-marker")
 
-    location = (
-        location_icon.parent.text.strip().split("\n")[0].split(",")[0].strip()
-        if location_icon
-        else "Remote")
+    location = (location_icon.parent.text.strip().split("\n")[0].split(",")[0].strip()
+                if location_icon
+                else "Remote")
 
     # SALARY
     salary_min = None
     salary_max = None
-
     salary_icon = soup.select_one(".glyphicon-hryvnia-fill")
 
     if salary_icon:
-
         salary_block = salary_icon.find_parent("li")
         salary_tag = salary_block.select_one(".strong-500")
 
         if salary_tag:
-
             salary_text = salary_tag.text.strip()
-
             nums = re.findall(r"\d[\d\s\u202f\u2009]*", salary_text)
-
             nums = [int(re.sub(r"\D", "", n)) for n in nums]
 
             if len(nums) == 1:
@@ -126,22 +119,15 @@ def parse_job_page(soup):
     employment_type = None
     experience_years = None
     education = None
-
-
     conditions_icon = soup.select_one('span[title="Умови й вимоги"]')
 
     if conditions_icon:
-
         conditions_block = conditions_icon.find_parent("li")
-
         conditions_text = " ".join(conditions_block.get_text().split())
-
         parts = [p.strip() for p in conditions_text.split(".") if p.strip()]
 
         for part in parts:
-
             part_lower = part.lower()
-
             if "зайнятість" in part_lower:
                 employment_type = part
 
@@ -167,8 +153,60 @@ def parse_job_page(soup):
 
     published_datetime = (time_tag["datetime"]
                           if time_tag
-                          else datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    )
+                          else datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
+    # CONTACTS
+    recruiter_name = None
+    recruiter_phone = None
+
+    contact_block = soup.select_one("li.js-company-job-phone")
+
+    if contact_block:
+
+        name_span = contact_block.find("span", string=True)
+
+        if name_span:
+            recruiter_name = name_span.text.strip()
+
+        phone_tag = contact_block.select_one('a[href^="tel:"]')
+
+        if phone_tag:
+            recruiter_phone = phone_tag.get("href").replace("tel:", "").strip()
+
+    # COMPANY CONTACT LINKS
+    company_links = []
+
+    description_block = soup.select_one("#job-description")
+
+    if description_block:
+
+        for a in description_block.select("a[href]"):
+
+            href = a.get("href")
+
+            if not href:
+                continue
+
+            if "work.ua" in href:
+                continue
+
+            company_links.append(href)
+
+    # FALLBACK CONTACT
+    company_contact = None
+
+    if recruiter_phone is None and company_links:
+
+        for link in company_links:
+
+            if "tel:" in link:
+                company_contact = link.replace("tel:", "")
+                break
+
+            elif "http" in link:
+                company_contact = link
+                break
+
     return {"title": title,
             "company": company,
             "location": location,
@@ -178,28 +216,42 @@ def parse_job_page(soup):
             "employment_type": employment_type,
             "experience_years": experience_years,
             "education": education,
-            "published_datetime": published_datetime}
+            "published_datetime": published_datetime,
+            "recruiter_name": recruiter_name,
+            "recruiter_phone": recruiter_phone,
+            "company_contact": company_contact,
+            "link": url,
+            "search_query": query.replace("+", " ")}
 
 
 
-def collect_job_links(pages=8):
+def collect_job_links(queries, pages=10):
 
-    all_links = []
+    all_links = set()
+    results = []
 
-    for page in range(1, pages + 1):
+    for query in queries:
 
-        print(f"Collecting page {page}")
+        print(f"\nSearch query: {query}")
 
-        links = get_job_links(page)
+        for page in range(1, pages + 1):
 
-        print(f"Found {len(links)} jobs")
+            print(f"Collecting page {page}")
 
-        all_links.extend(links)
+            links = get_job_links(query, page)
 
-    return all_links
+            print(f"Found {len(links)} jobs")
+
+            for link in links:
+
+                if link not in all_links:
+                    all_links.add(link)
+                    results.append((link, query))
+
+    return results
 
 # COLLECT LINKS
-links = collect_job_links(8)
+links = collect_job_links(SEARCH_QUERIES, pages=20)
 
 print(f"\nTotal links collected: {len(links)}")
 
@@ -207,7 +259,8 @@ print(f"\nTotal links collected: {len(links)}")
 # PARSE JOB PAGES
 jobs_data = []
 
-for i, link in enumerate(links):
+# MAIN LOOP
+for i, (link, query) in enumerate(links):
 
     print(f"Parsing {i+1}/{len(links)}")
 
@@ -216,9 +269,7 @@ for i, link in enumerate(links):
     if not soup:
         continue
 
-    job = parse_job_page(soup)
-
-    job["url"] = link
+    job = parse_job_page(soup, link, query)
 
     jobs_data.append(job)
 
@@ -237,6 +288,6 @@ print(df.shape)
 
 
 # SAVE DATASET
-df.to_csv("../../data/csv/jobs_parsed16.csv", index=False)
+df.to_csv("../../data/csv/jobs_parsed22.csv", index=False)
 
 print("\nCSV saved")
