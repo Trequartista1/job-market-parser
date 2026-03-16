@@ -288,6 +288,6 @@ print(df.shape)
 
 
 # SAVE DATASET
-df.to_csv("../../data/csv/jobs_parsed22.csv", index=False)
+df.to_csv("../../data/csv/jobs_dataset.csv", index=False)
 
 print("\nCSV saved")
