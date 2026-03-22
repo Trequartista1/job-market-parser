@@ -2,3 +2,4 @@ requests
 beautifulsoup4
 pandas
 lxml
+python-telegram-bot==20.7
