@@ -372,7 +372,7 @@ def main():
 
     print(df.head())
 
-    df.to_csv("robota_jobs.csv", index=False)
+    df.to_csv("../../data_2/raw/robotaua_set.csv", index=False)
 
     print("\nSaved robota_jobs.csv")
 

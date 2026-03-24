@@ -9,7 +9,7 @@ TOKEN = "8563199218:AAHMwOvpNZB21Ki0KhcoefjdhvQrijOqn00"
 # LOAD DATA
 # -----------------------------
 def load_data():
-    df = pd.read_csv("../data_2/csvs/final_concatenated1.csv")
+    df = pd.read_csv("../../data_2/csvs/final_concatenated1.csv")
 
     # нормализация
     df["search_query"] = df["search_query"].str.lower()

@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import time
+import random
 import pandas as pd
 from datetime import datetime
 import re
@@ -52,7 +53,7 @@ def fetch_job_page(url):
         return None
 
     soup = BeautifulSoup(r.text, "lxml")
-    time.sleep(1.2)
+    time.sleep(random.uniform(0.4, 0.8))
     return soup
 
 # PARSING HTML
@@ -288,6 +289,6 @@ print(df.shape)
 
 
 # SAVE DATASET
-df.to_csv("../../data/csv/jobs_dataset.csv", index=False)
+df.to_csv("../../data_2/raw/workua_set.csv", index=False)
 
 print("\nCSV saved")
