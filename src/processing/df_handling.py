@@ -5,8 +5,8 @@ from datetime import datetime, timedelta
 import re
 
 # считывание
-workua = pd.read_csv("../../data_2/raw/workua_set.csv")
-rabotaua = pd.read_csv("../../data_2/raw/robotaua_set.csv")
+workua = pd.read_csv("../../data_2/raw/workua_set12_05.csv")
+rabotaua = pd.read_csv("../../data_2/raw/robotaua_set12_05.csv")
 
 # генерация ссылок на тг вместо номера
 mask = (workua["company_contact"].str.contains(r"\d", na=False) &   # есть цифры

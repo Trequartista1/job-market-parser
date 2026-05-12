@@ -1,7 +1,25 @@
+import sys
+import os
+
+# -----------------------------
+# FIX IMPORT PATH
+# -----------------------------
+ROOT_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+# -----------------------------
+# IMPORTS
+# -----------------------------
 import pandas as pd
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
+from cmp.query_parser import parse_query
+
+# -----------------------------
+# CONFIG
+# -----------------------------
 TOKEN = "8563199218:AAHMwOvpNZB21Ki0KhcoefjdhvQrijOqn00"
 
 
@@ -11,8 +29,8 @@ TOKEN = "8563199218:AAHMwOvpNZB21Ki0KhcoefjdhvQrijOqn00"
 def load_data():
     df = pd.read_csv("../../data_2/csvs/final_concatenated1.csv")
 
-    # нормализация
     df["search_query"] = df["search_query"].str.lower()
+    df["published_datetime"] = pd.to_datetime(df["published_datetime"], errors="coerce")
 
     return df
 
@@ -21,51 +39,56 @@ df = load_data()
 
 
 # -----------------------------
-# ROLE MAP
+# UTILS
 # -----------------------------
-ROLE_MAP = {
-    "data": ["data analyst", "data scientist", "bi analyst"],
-    "business": ["business analyst", "system analyst"],
-    "marketing": ["marketing analyst"],
-    "finance": ["financial analyst"],
-    "product": ["product analyst"]
-}
-
-
-# -----------------------------
-# FILTERS
-# -----------------------------
-def filter_by_role(df, role_key):
-    role_key = role_key.lower()
-
-    queries = [q.lower() for q in ROLE_MAP.get(role_key, [])]
-
-    return df[df["search_query"].isin(queries)]
-
-def get_avg_salary_by_role(df):
-    return df["average_salary"].dropna().mean()
-
-# -----------------------------
-# FORMAT
-# -----------------------------
-def format_job(row, role_avg_salary):
-
-    # зарплата
-    if pd.notna(row["average_salary"]):
-        salary = int(row["average_salary"])
-    else:
-        salary = f"~{int(role_avg_salary)} (avg)"
-
-    # контакты
-    contact = row.get("recruiter_phone") or "not provided"
-
-    # скиллы
-    skills = row.get("skills")
+def parse_skills(skills):
+    if isinstance(skills, list):
+        return skills
 
     if isinstance(skills, str):
-        skills = skills.strip("[]").replace("'", "").split(", ")
+        return skills.strip("[]").replace("'", "").split(", ")
 
-    skills_text = ", ".join(skills[:5]) if skills else "not specified"
+    return []
+
+
+def skill_match(row_skills, user_skills):
+    row_skills = parse_skills(row_skills)
+    return any(skill in row_skills for skill in user_skills)
+
+
+def format_date(dt):
+    if pd.isna(dt):
+        return "не указана"
+    return dt.strftime("%Y-%m-%d")
+
+
+# -----------------------------
+# FORMAT JOB
+# -----------------------------
+def format_job(row):
+
+    # salary
+    salary = row.get("average_salary")
+    if pd.notna(salary) and salary != 0:
+        salary = int(salary)
+    else:
+        salary = "не указано"
+
+    # skills
+    skills = parse_skills(row.get("skills"))
+    skills_text = ", ".join(skills[:5]) if skills else "не указаны"
+
+    # contact
+    contact = row.get("recruiter_phone")
+    if pd.isna(contact) or contact == "":
+        contact = "не указан"
+
+    # extra fields
+    employment = row.get("employment_type") or "не указано"
+    experience = row.get("experience_years")
+    education = row.get("education") or "не указано"
+    source = row.get("source") or "unknown"
+    published = format_date(row.get("published_datetime"))
 
     return (
         f"🧑‍💻 {row['title']}\n"
@@ -73,96 +96,82 @@ def format_job(row, role_avg_salary):
 
         f"💰 Salary: {salary}\n"
         f"📊 Skills: {skills_text}\n"
-        f"📞 Contact: {contact}\n\n"
+        f"🕒 Published: {published}\n"
+
+        f"💼 Employment: {employment}\n"
+        f"📈 Experience: {experience}\n"
+        f"🎓 Education: {education}\n"
+
+        f"📞 Contact: {contact}\n"
+        f"🌐 Source: {source}\n\n"
 
         f"🔗 {row['link']}"
     )
+
 
 # -----------------------------
 # COMMANDS
 # -----------------------------
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "📊 Job Market Bot — Data & Analytics Roles\n\n"
-
-        "This bot helps you find relevant jobs based on role and skills.\n"
-        "Instead of browsing hundreds of вакансий, you get filtered results.\n\n"
-
-        "🔍 AVAILABLE COMMANDS:\n\n"
-
-        "1. ROLE FILTER (required first argument):\n"
-        "/jobs data\n"
-        "/jobs business\n"
-        "/jobs marketing\n"
-        "/jobs finance\n"
-        "/jobs product\n\n"
-
-        "2. SKILL FILTER (coming next step):\n"
-        "/jobs data python sql\n\n"
-
-        "3. EXAMPLES:\n"
-        "/jobs data\n"
-        "/jobs business\n\n"
-
-        "📌 HOW IT WORKS:\n"
-        "- Jobs are grouped by role\n"
-        "- Sorted by latest\n"
-        "- (Soon) Ranked by skill match\n\n"
-
-        "💡 TIP:\n"
-        "Use 'data' category to access most analytics roles\n"
+        "🤖 Job Bot\n\n"
+        "Примеры:\n"
+        "/jobs python\n"
+        "/jobs python sql\n"
     )
 
 
 async def jobs(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
+    user_input = " ".join(context.args)
+
+    parsed = parse_query(user_input)
+    user_skills = parsed.get("skills", [])
+
+    skills_text = ", ".join(user_skills) if user_skills else "не найдено"
+    await update.message.reply_text(f"🧠 Skills: {skills_text}")
+
     filtered_df = df.copy()
-    user_args = context.args
 
     # -----------------------------
-    # FILTER 1: ROLE
+    # FILTER
     # -----------------------------
-    if user_args:
-        role = user_args[0].lower()
-
-        if role in ROLE_MAP:
-            filtered_df = filter_by_role(filtered_df, role)
-        else:
-            await update.message.reply_text(
-                "Unknown category\nExample: /jobs data"
+    if user_skills:
+        filtered_df = filtered_df[
+            filtered_df["skills"].apply(
+                lambda x: skill_match(x, user_skills)
             )
-            return
+        ]
 
     # -----------------------------
-    # EMPTY CHECK
+    # EMPTY
     # -----------------------------
     if filtered_df.empty:
-        await update.message.reply_text("No jobs found")
+        await update.message.reply_text("❌ Ничего не найдено")
         return
 
-    # 🔥 ВОТ СЮДА ВСТАВЛЯЕМ ↓↓↓
-
-    # средняя зарплата по текущему фильтру
-    role_avg_salary = get_avg_salary_by_role(filtered_df)
-
-    # сортировка
+    # -----------------------------
+    # SORT + LIMIT
+    # -----------------------------
     latest = (
         filtered_df
         .sort_values("published_datetime", ascending=False)
-        .head(5)
+        .head(10)   # 🔥 увеличили
     )
 
-    # вывод
+    # -----------------------------
+    # OUTPUT
+    # -----------------------------
     for _, row in latest.iterrows():
-        await update.message.reply_text(
-            format_job(row, role_avg_salary)
-        )
+        await update.message.reply_text(format_job(row))
 
 
 # -----------------------------
 # MAIN
 # -----------------------------
 def main():
+    print("🚀 Bot started")
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))

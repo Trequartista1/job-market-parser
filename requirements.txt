@@ -3,3 +3,4 @@ beautifulsoup4
 pandas
 lxml
 python-telegram-bot==20.7
+telethon==1.36.0

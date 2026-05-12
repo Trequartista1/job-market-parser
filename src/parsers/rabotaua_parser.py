@@ -16,14 +16,34 @@ HEADERS = {
 
 
 SEARCH_QUERIES = [
-    "data analyst",
-    "business analyst",
-    "marketing analyst",
-    "financial analyst",
-    "product analyst",
-    "system analyst",
-    "bi analyst",
-    "data scientist"
+    "junior analyst",
+    "assistant analyst",
+    "trainee analyst",
+
+    "data analyst junior",
+    "junior data analyst",
+
+    "business analyst junior",
+    "junior business analyst",
+
+    "reporting analyst",
+    "report analyst",
+
+    "excel analyst",
+    "sql analyst",
+
+    "bi analyst junior",
+
+    "operations analyst",
+    "operational analyst",
+
+    "support analyst",
+
+    "crm analyst",
+
+    "marketing analyst junior",
+
+    "financial analyst junior"
 ]
 
 
@@ -372,7 +392,7 @@ def main():
 
     print(df.head())
 
-    df.to_csv("../../data_2/raw/robotaua_set.csv", index=False)
+    df.to_csv("../../data_2/raw/robotaua_set12_05.csv", index=False)
 
     print("\nSaved robota_jobs.csv")
 

@@ -8,14 +8,54 @@ import re
 
 
 BASE_URL = "https://www.work.ua"
-SEARCH_QUERIES = ["data+analyst",
-                  "business+analyst",
-                  "marketing+analyst",
-                  "financial+analyst",
-                  "product+analyst",
-                  "system+analyst",
-                  "BI+analyst",
-                  "data+scientist"]
+SEARCH_QUERIES = [
+    "junior+web+analyst",
+    "digital+analyst",
+    "marketing+analyst",
+    "crm+analyst",
+    "performance+analyst",
+
+    "junior+analyst",
+    "assistant+analyst",
+    "trainee+analyst",
+
+    "data+reporting",
+    "reporting+analyst",
+    "report+analyst",
+
+    "excel+analyst",
+    "sql+analyst",
+
+    "operations+analyst",
+    "operational+analyst",
+
+    "sales+analyst",
+    "research+analyst",
+
+    "analytics+specialist",
+    "data+coordinator",
+
+    "bi+analyst+junior",
+    "junior+business+analyst",
+    "junior+data+analyst",
+
+    "content+analyst",
+    "pricing+analyst",
+    "inventory+analyst",
+
+    "dashboard+analyst",
+    "power+bi+analyst",
+
+    "молодший+аналітик",
+    "аналітик+даних",
+    "аналітик+звітності",
+    "excel+аналітик",
+    "sql+аналітик",
+
+    "business+assistant",
+    "support+analyst",
+    "operations+specialist"
+]
 
 # COLLECTING LINKS
 def get_job_links(query, page=1):
@@ -289,6 +329,6 @@ print(df.shape)
 
 
 # SAVE DATASET
-df.to_csv("../../data_2/raw/workua_set.csv", index=False)
+df.to_csv("../../data_2/raw/workua_set12_05.csv", index=False)
 
 print("\nCSV saved")
